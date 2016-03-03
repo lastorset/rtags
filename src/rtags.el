@@ -556,12 +556,40 @@ to case differences."
   (and (not (buffer-file-name buffer))
        (rtags-string-prefix-p "*RTags" (buffer-name buffer))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Restore Window Configuration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defvar rtags-inhibit-save-previous-winconf nil)
+
+(defvar-local rtags-previous-window-configuration nil)
+(put 'rtags-previous-window-configuration 'permanent-local t)
+
+(defun rtags-save-window-configuration ()
+  "Save the current window configuration.
+
+Later, when the buffer is buried, it may be restored by
+`rtags-restore-window-configuration'."
+  (if rtags-inhibit-save-previous-winconf
+      (when (eq rtags-inhibit-save-previous-winconf 'unset)
+        (setq rtags-previous-window-configuration nil))
+    (unless (get-buffer-window (current-buffer) (selected-frame))
+      (setq rtags-previous-window-configuration
+            (current-window-configuration)))))
+
 ;;;###autoload
-(defun rtags-bury-or-delete ()
+(defun rtags-restore-window-configuration (&optional kill-buffer)
+  "Bury or delete the current buffer and restore previous window configuration."
   (interactive)
-  (if (> (length (window-list)) 1)
-      (delete-window)
-    (bury-buffer)))
+  (let ((winconf rtags-previous-window-configuration)
+        (buffer (current-buffer))
+        (frame (selected-frame)))
+    (quit-window kill-buffer (selected-window))
+    (when (and winconf (equal frame (window-configuration-frame winconf)))
+      (set-window-configuration winconf)
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (setq rtags-previous-window-configuration nil))))))
 
 (define-derived-mode rtags-mode fundamental-mode
   (set (make-local-variable 'font-lock-defaults)
@@ -589,7 +617,7 @@ to case differences."
 (define-key rtags-mode-map (kbd "M-o") 'rtags-show-in-other-window)
 (define-key rtags-mode-map (kbd "s") 'rtags-show-in-other-window)
 (define-key rtags-mode-map (kbd "SPC") 'rtags-select-and-remove-rtags-buffer)
-(define-key rtags-mode-map (kbd "q") 'rtags-bury-or-delete)
+(define-key rtags-mode-map (kbd "q") 'rtags-restore-window-configuration)
 (define-key rtags-mode-map (kbd "j") 'next-line)
 (define-key rtags-mode-map (kbd "k") 'previous-line)
 (define-key rtags-mode-map (kbd "n") 'next-line)
@@ -1072,7 +1100,7 @@ Can be used both for path and location."
 ;; Preprocess
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar rtags-preprocess-keymap (make-sparse-keymap))
-(define-key rtags-preprocess-keymap (kbd "q") 'rtags-bury-or-delete)
+(define-key rtags-preprocess-keymap (kbd "q") 'rtags-restore-window-configuration)
 (set-keymap-parent rtags-preprocess-keymap c++-mode-map)
 (define-derived-mode rtags-preprocess-mode c++-mode
   (setq mode-name "rtags-preprocess")
@@ -1149,7 +1177,7 @@ Can be used both for path and location."
 (define-key rtags-dependency-tree-mode-map (kbd "SPC") 'rtags-select-and-remove-rtags-buffer)
 (define-key rtags-dependency-tree-mode-map (kbd "k") 'previous-line)
 (define-key rtags-dependency-tree-mode-map (kbd "j") 'next-line)
-(define-key rtags-dependency-tree-mode-map (kbd "q") 'rtags-bury-or-delete)
+(define-key rtags-dependency-tree-mode-map (kbd "q") 'rtags-restore-window-configuration)
 
 (defvar-local rtags-dependency-tree-data nil)
 
@@ -1383,7 +1411,7 @@ Can be used both for path and location."
 (define-key rtags-references-tree-mode-map (kbd "SPC") 'rtags-select-and-remove-rtags-buffer)
 (define-key rtags-references-tree-mode-map (kbd "k") 'previous-line)
 (define-key rtags-references-tree-mode-map (kbd "j") 'next-line)
-(define-key rtags-references-tree-mode-map (kbd "q") 'rtags-bury-or-delete)
+(define-key rtags-references-tree-mode-map (kbd "q") 'rtags-restore-window-configuration)
 (defvar-local rtags-references-tree-data nil)
 
 (defun rtags-references-tree-current-location ()
@@ -2615,7 +2643,7 @@ is true. References to references will be treated as references to the reference
 ;; Diagnostics
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar rtags-diagnostics-mode-map (make-sparse-keymap))
-(define-key rtags-diagnostics-mode-map (kbd "q") 'rtags-bury-or-delete)
+(define-key rtags-diagnostics-mode-map (kbd "q") 'rtags-restore-window-configuration)
 (define-key rtags-diagnostics-mode-map (kbd "c") 'rtags-clear-diagnostics)
 (define-key rtags-diagnostics-mode-map (kbd "f") 'rtags-apply-fixit-at-point)
 (set-keymap-parent rtags-diagnostics-mode-map compilation-mode-map)
